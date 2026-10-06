@@ -1,57 +1,64 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema(
   {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
-      trim: true,
     },
-
-    name: {
+    phone: {
       type: String,
       trim: true,
-      default: "",
     },
-
+    password: {
+      type: String,
+      minlength: 6,
+    },
+    profileImage: String,
+    bio: String,
+    googleId: String,
     role: {
       type: String,
-      enum: ["STUDENT", "EVALUATOR", "ADMIN"],
-      default: "STUDENT",
+      enum: ['user', 'admin', 'super_admin'],
+      default: 'user',
     },
-
-    isVerified: {
+    isBlocked: {
       type: Boolean,
       default: false,
     },
-
-    otpHash: {
-      type: String,
-      default: null,
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
     },
-
-    otpExpiresAt: {
-      type: Date,
-      default: null,
-    },
-
-    otpAttempts: {
-      type: Number,
-      default: 0,
-    },
-
-    lastOtpSentAt: {
-      type: Date,
-      default: null,
-    },
+    lastLogin: Date,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-const User = mongoose.model("User", userSchema);
+userSchema.pre('save', async function hashPassword(next) {
+  if (!this.isModified('password') || !this.password) {
+    return next();
+  }
 
-export default User;
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+userSchema.methods.comparePassword = async function comparePassword(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+export default mongoose.model('User', userSchema);
